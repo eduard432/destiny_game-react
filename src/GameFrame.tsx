@@ -15,7 +15,7 @@ export type Slide = {
   text: string;
   options: string[]; // ya no necesitamos coordenadas,
   selecOption?: number; // seleccion de la opcion
-  bgImage: string,
+  bgImage?: string,
   audio?: string
 };
 
@@ -93,32 +93,32 @@ const getResponse = async (messages: Message[]) => {
       const imageUrl = imageRes.data[0].url
 
       
-      console.log({dataImg: imageRes.data})
+      // console.log({dataImg: imageRes.data})
       return decodeURIComponent(imageUrl || "")
     })
 
-    const images = await Promise.allSettled(imageResPromise)
+    // const images = await Promise.allSettled(imageResPromise)
 
     // AUDIO:
-    const audioResPromise = object.paths.map(async (path) => {
-      const {audio} = await experimental_generateSpeech({
-        model: openai.speech('tts-1'),
-        text: path.text,
-      });
+    // const audioResPromise = object.paths.map(async (path) => {
+    //   const {audio} = await experimental_generateSpeech({
+    //     model: openai.speech('tts-1'),
+    //     text: path.text,
+    //   });
   
-      const audioURL = `data:audio/mpeg;base64,${audio.base64}`
+    //   const audioURL = `data:audio/mpeg;base64,${audio.base64}`
 
-      return audioURL
-    })
+    //   return audioURL
+    // })
 
-    const audios = await Promise.allSettled(audioResPromise)
+    // const audios = await Promise.allSettled(audioResPromise)
 
     const newObject = object.paths.map((path, index) => {
       return {
         text: path.text,
         options: path.options,
-        bgImage: images[index].status === "fulfilled" ? images[index].value : "",
-        audio: audios[index].status === "fulfilled" ? audios[index].value : "",
+        // bgImage: images[index].status === "fulfilled" ? images[index].value : "",
+        // audio: audios[index].status === "fulfilled" ? audios[index].value : "",
       }
     })
 
@@ -152,7 +152,7 @@ function GameFrame() {
       | {
         text: string;
         options: string[];
-        bgImage: string;
+        bgImage?: string;
     }[]
       | undefined
     >
