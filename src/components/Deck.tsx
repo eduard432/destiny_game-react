@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Reveal from "reveal.js";
 import "reveal.js/dist/reveal.css";
 import "reveal.js/dist/theme/black.css";
-import { Slide } from "../App";
+import { Slide } from "../GameFrame";
 
 const Deck = ({
   slides,
