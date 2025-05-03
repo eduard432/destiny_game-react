@@ -1,20 +1,29 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { experimental_generateSpeech, experimental_generateImage as generateImage } from 'ai';
+
 import "./App.css";
 import Deck from "./components/Deck";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { openai, prompts } from "./openai";
+import { nativeOpenAi, openai, prompts } from "./openai";
+import bgImage1 from './assets/bosque.png';
+import bgImage2 from './assets/figura.png';
+import bgImage3 from './assets/anciano.png';
+
 
 export type Slide = {
   text: string;
   options: string[]; // ya no necesitamos coordenadas,
   selecOption?: number; // seleccion de la opcion
+  bgImage: string,
+  audio?: string
 };
 
 const initialSlides: Slide[] = [
   {
     text: "Despiertas en un bosque oscuro. A lo lejos se escucha un grito.",
     options: ["Ir hacia el grito", "Alejarse lentamente"],
+    bgImage: bgImage1
   },
 ];
 
@@ -27,7 +36,6 @@ const getMessages = (slides: Slide[]): Message[] => {
   const messages: Message[] = [];
 
   for (const slide of slides) {
-    console.log({ slide });
     messages.push({
       role: "assistant",
       content: slide.text,
@@ -46,6 +54,8 @@ const getMessages = (slides: Slide[]): Message[] => {
 
 const getResponse = async (messages: Message[]) => {
   try {
+
+    // TEXTO:
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
       schema: z.object({
@@ -53,6 +63,7 @@ const getResponse = async (messages: Message[]) => {
           z.object({
             text: z.string(),
             options: z.array(z.string()),
+            imageDesc: z.string()
           })
         ),
       }),
@@ -65,7 +76,54 @@ const getResponse = async (messages: Message[]) => {
       ],
     });
 
-    return object;
+
+    // IMAGENES:
+    const imageResPromise = object.paths.map(async (path) => {
+
+       const imageRes = await nativeOpenAi.images.generate({
+        model: 'dall-e-3',
+        prompt: path.imageDesc,
+        size: "1792x1024",
+        quality: 'standard',
+        response_format: 'url',
+      })
+
+      if(!imageRes.data) return ""
+
+      const imageUrl = imageRes.data[0].url
+
+      
+      console.log({dataImg: imageRes.data})
+      return decodeURIComponent(imageUrl || "")
+    })
+
+    const images = await Promise.allSettled(imageResPromise)
+
+    // AUDIO:
+    const audioResPromise = object.paths.map(async (path) => {
+      const {audio} = await experimental_generateSpeech({
+        model: openai.speech('tts-1'),
+        text: path.text,
+      });
+  
+      const audioURL = `data:audio/mpeg;base64,${audio.base64}`
+
+      return audioURL
+    })
+
+    const audios = await Promise.allSettled(audioResPromise)
+
+    const newObject = object.paths.map((path, index) => {
+      return {
+        text: path.text,
+        options: path.options,
+        bgImage: images[index].status === "fulfilled" ? images[index].value : "",
+        audio: audios[index].status === "fulfilled" ? audios[index].value : "",
+      }
+    })
+
+
+    return newObject;
   } catch (error) {
     console.log(error);
   }
@@ -80,28 +138,28 @@ function App() {
     {
       text: "Encuentras una figura encapuchada de pie junto a un árbol caído.",
       options: ["Hablarle", "Esconderse"],
+      bgImage: bgImage2
     },
     {
       text: "La figura se da la vuelta y ves que es un anciano con una larga barba blanca.",
       options: ["Preguntarle sobre el bosque", "Atacarle"],
+      bgImage: bgImage3
     },
   ]);
 
   const saveOptions = async (
     response: Promise<
       | {
-          paths: {
-            options: string[];
-            text: string;
-          }[];
-        }
+        text: string;
+        options: string[];
+        bgImage: string;
+    }[]
       | undefined
     >
   ) => {
-    const data = await response;
-    console.log({ data });
-    if (data) {
-      setCurrentOptions(data.paths);
+    const paths = await response;
+    if (paths) {
+      setCurrentOptions(paths);
     }
     setLoading(0);
   };
@@ -119,7 +177,6 @@ function App() {
     setSlides(newSlides);
 
     const messages = getMessages(newSlides);
-    console.log({ messages });
     const response = getResponse(messages);
     saveOptions(response);
     setCurrentIndex(slides.length);

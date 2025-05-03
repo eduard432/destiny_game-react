@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Reveal from "reveal.js";
 import "reveal.js/dist/reveal.css";
 import "reveal.js/dist/theme/black.css";
@@ -13,10 +13,11 @@ const Deck = ({
   slides: Slide[];
   handleOptionClick: (index: number) => void;
   currentSlideIndex: number;
-  loading: number
+  loading: number;
 }) => {
   const deckDivRef = useRef<HTMLDivElement>(null); // reference to deck container div
   const deckRef = useRef<Reveal.Api | null>(null); // reference to deck reveal instance
+  const [revealReady, setRevealReady] = useState(false);
 
   useEffect(() => {
     // Prevents double initialization in strict mode
@@ -36,6 +37,7 @@ const Deck = ({
       })
       .then(() => {
         // good place for event handlers and plugin setups
+        setRevealReady(true); // <- Marca Reveal como listo
       });
 
     return () => {
@@ -51,8 +53,13 @@ const Deck = ({
   }, []);
 
   useEffect(() => {
+    if (revealReady && deckRef.current) {
+      deckRef.current.sync(); // <- ¡Esto soluciona el problema!
+    }
+  }, [slides, revealReady]);
+
+  useEffect(() => {
     if (deckRef.current) {
-  
       // Avanza si no estamos ya en la slide actual
       const current = deckRef.current.getIndices().h;
       if (current < currentSlideIndex) {
@@ -67,20 +74,33 @@ const Deck = ({
     <div className="reveal" ref={deckDivRef}>
       <div className="slides">
         {slides.map((slide, index) => (
-          <section key={index}>
+          <section data-background-image={slide.bgImage} key={index}>
             <p className="w-full text-sm">{slide.text}</p>
-            {slide.options.map((option, i) => (
-              <button
-                disabled={loading === index && index !== 0}
-                key={option}
-                onClick={() => {
-                  handleOptionClick(i);
-                }}
-                className="disabled:cursor-default text-sm px-4 py-1 rounded-md bg-neutral-500 mx-2 cursor-pointer"
-              >
-                {option}
-              </button>
-            ))}
+            {index !== slides.length - 1 ? (
+              <p>{slide.options[slide.selecOption || 0]}</p>
+            ) : (
+              slide.options.map((option, i) => (
+                <button
+                  disabled={loading === index && index !== 0}
+                  key={option}
+                  onClick={() => {
+                    handleOptionClick(i);
+                  }}
+                  className="disabled:cursor-default text-sm px-4 py-1 rounded-md bg-neutral-500 mx-2 cursor-pointer"
+                >
+                  {option}
+                </button>
+              ))
+            )}
+            {
+                slide.audio && (
+                    <audio controls className="w-full mt-4">
+                        <source src={slide.audio} type="audio/mpeg" />
+                        Your browser does not support the audio element.
+                    </audio>
+
+                )
+            }
           </section>
         ))}
       </div>
