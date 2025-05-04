@@ -17,5 +17,6 @@ export const prompts = {
     en base a las decisiones pasadas del protagonista. El usuario es el protagonista de esta historia. No menciones las opciones en la historia solo en la lista de opciones. 
     Para confirmar, tienes que generar un arreglo con objetos que contengan un texto y cada uno un arreglo de opciones. A cada rama agrega una imagen de fondo diferente (
     crea una descripción para que el modelo de "dalle-3" genere la imágen, ten en cuenta sus limitantes, se conciso con la descripción de la imágen).
+    El jugador tiene que llegar a un objetivo en la historia. Por lo tanto las decisiones tienen que estár encamiandas a cumplirlo pero forzando al jugador a tomar decisiones difíciles.
     `
 }

@@ -1,14 +1,12 @@
-import { useState } from "react";
-import { experimental_generateSpeech } from 'ai';
+import { useEffect, useState } from "react";
+// import { experimental_generateSpeech } from 'ai';
 
 import "./App.css";
 import Deck from "./components/Deck";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { nativeOpenAi, openai, prompts } from "./openai";
-import bgImage1 from './assets/bosque.png';
-import bgImage2 from './assets/figura.png';
-import bgImage3 from './assets/anciano.png';
+
 
 
 export type Slide = {
@@ -19,13 +17,6 @@ export type Slide = {
   audio?: string
 };
 
-const initialSlides: Slide[] = [
-  {
-    text: "Despiertas en un bosque oscuro. A lo lejos se escucha un grito.",
-    options: ["Ir hacia el grito", "Alejarse lentamente"],
-    bgImage: bgImage1
-  },
-];
 
 type Message = {
   role: "user" | "assistant";
@@ -52,7 +43,7 @@ const getMessages = (slides: Slide[]): Message[] => {
   return messages;
 };
 
-const getResponse = async (messages: Message[]) => {
+const getResponse = async (messages: Message[], objetivo: string) => {
   try {
 
     // TEXTO:
@@ -72,30 +63,34 @@ const getResponse = async (messages: Message[]) => {
           role: "system",
           content: prompts.GENERATE_OBJECT,
         },
+        {
+          role: "system",
+          content: "El objetivo de la historia para el jugador es: " + objetivo,
+        },
         ...messages,
       ],
     });
 
 
     // IMAGENES:
-    const imageResPromise = object.paths.map(async (path) => {
+    // const imageResPromise = object.paths.map(async (path) => {
 
-       const imageRes = await nativeOpenAi.images.generate({
-        model: 'dall-e-3',
-        prompt: path.imageDesc,
-        size: "1792x1024",
-        quality: 'standard',
-        response_format: 'url',
-      })
+    //    const imageRes = await nativeOpenAi.images.generate({
+    //     model: 'dall-e-3',
+    //     prompt: path.imageDesc,
+    //     size: "1792x1024",
+    //     quality: 'standard',
+    //     response_format: 'url',
+    //   })
 
-      if(!imageRes.data) return ""
+    //   if(!imageRes.data) return ""
 
-      const imageUrl = imageRes.data[0].url
+    //   const imageUrl = imageRes.data[0].url
 
       
-      // console.log({dataImg: imageRes.data})
-      return decodeURIComponent(imageUrl || "")
-    })
+    //   // console.log({dataImg: imageRes.data})
+    //   return decodeURIComponent(imageUrl || "")
+    // })
 
     // const images = await Promise.allSettled(imageResPromise)
 
@@ -129,23 +124,20 @@ const getResponse = async (messages: Message[]) => {
   }
 };
 
-function GameFrame() {
+function GameFrame({initialSlides, initialOptions, objetivo}: {objetivo: string, initialSlides: Slide[], initialOptions: Slide[]}) {
   const [slides, setSlides] = useState(initialSlides);
   const [currentIndex, setCurrentIndex] = useState(initialSlides.length - 1);
   const [loading, setLoading] = useState(0);
+  const [finished, setFinished] = useState(false);
 
-  const [currentOptions, setCurrentOptions] = useState<Slide[]>([
-    {
-      text: "Encuentras una figura encapuchada de pie junto a un árbol caído.",
-      options: ["Hablarle", "Esconderse"],
-      bgImage: bgImage2
-    },
-    {
-      text: "La figura se da la vuelta y ves que es un anciano con una larga barba blanca.",
-      options: ["Preguntarle sobre el bosque", "Atacarle"],
-      bgImage: bgImage3
-    },
-  ]);
+  useEffect(() => {
+    if(slides.length > 6 ) {
+      setFinished(true)
+    }
+  }, [slides])
+  
+
+  const [currentOptions, setCurrentOptions] = useState<Slide[]>(initialOptions);
 
   const saveOptions = async (
     response: Promise<
@@ -177,19 +169,39 @@ function GameFrame() {
     setSlides(newSlides);
 
     const messages = getMessages(newSlides);
-    const response = getResponse(messages);
+    const response = getResponse(messages, objetivo);
     saveOptions(response);
     setCurrentIndex(slides.length);
   };
 
   return (
-    <main className="h-screen">
-      <Deck
-        loading={loading}
-        currentSlideIndex={currentIndex}
-        handleOptionClick={handleOptionClick}
-        slides={slides}
-      />
+    <main className={`${finished && "bg-zinc-950 flex justify-center items-center" } h-screen`}>
+      {
+        !finished ? (
+
+        <Deck
+          loading={loading}
+          currentSlideIndex={currentIndex}
+          handleOptionClick={handleOptionClick}
+          slides={slides}
+        />): (
+          <div className="flex flex-col justify-center" >
+            <h2 className="font-mono text-3xl text-center text-zinc-50" >Perdiste tu destino :(</h2>
+            <button
+            onClick={() => {
+              setSlides(initialSlides);
+              setCurrentOptions(initialOptions);
+              setCurrentIndex(0);
+              setFinished(false);
+              setLoading(0);
+            }}
+            className="mt-12 text-zinc-950 bg-zinc-50 px-8 py-1 font-semibold text-xl cursor-pointer hover:bg-zinc-200 ease-in-out"
+          >
+            Volver a empezar
+          </button>
+          </div>
+        )
+      }
     </main>
   );
 }
